@@ -24,7 +24,7 @@ typedef struct Solid {
 
 Solid solids[SOLID_COUNT];
 
-typedef enum Action { ACTION_DO_NOTHING, ACTION_COUNT } Action;
+typedef enum Action { ACTION_DO_NOTHING, ACTION_STOP_PLAYER } Action;
 
 typedef struct Actor {
     TileId tileId;
@@ -32,6 +32,8 @@ typedef struct Actor {
     Vector2 moveRemainder;
     Action onCollision;
 } Actor;
+
+Vector2 playerVelocity;
 
 void ActorMove(Actor *actor, Vector2 movementAmount);
 
@@ -50,23 +52,22 @@ int main(int argc, char *argv[]) {
     SetWindowState(FLAG_WINDOW_RESIZABLE);
 
     {
-        const char imagePaths[TILE_COUNT][64] = {
-            "resources/basicguy.png",   // TILE_PLAYER
-            "resources/basicblock.png", // TILE_BLOCK
-        };
-        const Rectangle colliders[TILE_COUNT] = {
-            {3, 0, 26, tileSize},       // TILE_PLAYER
-            {0, 0, tileSize, tileSize}, // TILE_BLOCK
+        const struct {
+            char imagePath[64];
+            Rectangle collider;
+        } tileDefinitions[TILE_COUNT] = {
+            {"resources/basicguy.png", {3, 0, 26, tileSize}},         // TILE_PLAYER
+            {"resources/basicblock.png", {0, 0, tileSize, tileSize}}, // TILE_BLOCK
         };
         for (size_t i = 0; i < TILE_COUNT; i++) {
-            Image image = LoadImage(imagePaths[i]);
+            Image image = LoadImage(tileDefinitions[i].imagePath);
             tiles[i].texture = LoadTextureFromImage(image);
-            tiles[i].collider = colliders[i];
+            tiles[i].collider = tileDefinitions[i].collider;
             UnloadImage(image);
         }
     }
 
-    Actor playerActor = {TILE_PLAYER, Vector2Zero(), Vector2Zero(), ACTION_DO_NOTHING};
+    Actor playerActor = {TILE_PLAYER, Vector2Zero(), Vector2Zero(), ACTION_STOP_PLAYER};
 
     {
         solids[0] = (Solid){TILE_BLOCK, (Vector2){0, 1}};
@@ -100,18 +101,28 @@ int main(int argc, char *argv[]) {
     int currentHeight;
 
     float playerWalkVelocity = 64.0f;
+    Vector2 gravity = {0.0f, 256.0f};
+    Vector2 playerJumpVelocity = {0.0f, -128.0f};
 
     SetTargetFPS(60);
 
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
-        Vector2 playerVelocity = Vector2Zero();
+        playerVelocity.x = 0.0f;
         if (IsKeyDown(KEY_RIGHT)) {
             playerVelocity.x += playerWalkVelocity;
         }
         if (IsKeyDown(KEY_LEFT)) {
             playerVelocity.x -= playerWalkVelocity;
         }
+        bool isPlayerGrounded =
+            CollideAt(playerActor, Vector2Add(playerActor.position, (Vector2){0, 1}));
+        if (isPlayerGrounded && IsKeyPressed(KEY_SPACE)) {
+            playerVelocity = playerJumpVelocity;
+        } else if (!isPlayerGrounded) {
+            playerVelocity = Vector2Add(playerVelocity, Vector2Scale(gravity, dt));
+        }
+
         ActorMove(&playerActor, Vector2Scale(playerVelocity, dt));
 
         if (IsKeyPressed(KEY_F)) {
@@ -235,6 +246,10 @@ bool CollideAt(Actor actor, Vector2 position) {
 void HandleCollision(Actor *actor, Vector2 movementSign) {
     switch (actor->onCollision) {
     case ACTION_DO_NOTHING:
+        return;
+
+    case ACTION_STOP_PLAYER:
+        playerVelocity = Vector2Zero();
         return;
     }
 }
