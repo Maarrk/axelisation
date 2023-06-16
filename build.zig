@@ -22,6 +22,17 @@ pub fn build(b: *std.Build) void {
     if (b.args) |args| {
         run_cmd.addArgs(args);
     }
-    const run_step = b.step("run", "Run the app");
+    const run_step = b.step("run", "Run the game");
     run_step.dependOn(&run_cmd.step);
+
+    const onelua_exe = b.addExecutable(.{
+        .name = "lua",
+        .root_source_file = .{ .path = "lua/onelua.c"},
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    onelua_exe.addIncludePath("lua");
+    const lua_step = b.step("lua", "Build the Lua interpreter");
+    lua_step.dependOn(&b.addInstallArtifact(onelua_exe).step);
 }
