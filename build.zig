@@ -84,8 +84,8 @@ pub fn build(b: *std.Build) void {
     });
     exercises_exe.addIncludePath("lua");
     exercises_exe.addCSourceFiles(&lua_c_files, &lua_c_flags);
-    exercises_exe.addIncludePath("util");
-    exercises_exe.addCSourceFile("util/getopt.c", &.{});
+    exercises_exe.addIncludePath("raylib/src/external/glfw/deps");
+    exercises_exe.addCSourceFile("raylib/src/external/glfw/deps/getopt.c", &.{});
 
     const lua_step = b.step("lua", "Build the Lua interpreter and exercises");
     lua_step.dependOn(&b.addInstallArtifact(onelua_exe).step);

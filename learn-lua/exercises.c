@@ -7,7 +7,7 @@
 #include "string.h"
 
 void basicInterpreter(lua_State *L);
-void stackOperations(lua_State *L);
+void stackOperations(lua_State *L, int dump);
 void stackDump(lua_State *L);
 
 int main(int argc, char **argv) {
@@ -47,9 +47,9 @@ int main(int argc, char **argv) {
     else {
         if (strcmp(evalue, "27.1") == 0)
             selected = EXERCISE_27_1;
-        else if (strcmp(evalue, "27.2"))
+        else if (strcmp(evalue, "27.2") == 0)
             selected = EXERCISE_27_2;
-        else if (strcmp(evalue, "27.3"))
+        else if (strcmp(evalue, "27.3") == 0)
             selected = EXERCISE_27_3;
         else {
             fprintf(stderr, "Invalid exercise selected: '%s'\n", evalue);
@@ -66,11 +66,11 @@ int main(int argc, char **argv) {
         break;
 
     case EXERCISE_27_2:
-        stackOperations(L);
+        stackOperations(L, 1);
         break;
 
     case EXERCISE_27_3:
-        stackOperations(L);
+        stackOperations(L, 0);
         stackDump(L);
         break;
 
@@ -101,14 +101,28 @@ void basicInterpreter(lua_State *L) {
 }
 
 // Exercise 27.2
-void stackOperations(lua_State *L) {
-    lua_pushnumber(L, 3.5);     // 3.5
+void stackOperations(lua_State *L, int dump) {
+    lua_pushnumber(L, 3.5); // 3.5
+    if (dump)
+        stackDump(L);
     lua_pushstring(L, "hello"); // 3.5      hello
-    lua_pushnil(L);             // 3.5      hello   nil
-    lua_rotate(L, 1, -1);       // hello    nil     3.5
-    lua_pushvalue(L, -2);       // hello    nil     3.5     nil
-    lua_remove(L, 1);           // nil      3.5     nil
-    lua_insert(L, -2);          // nil      nil     3.5
+    if (dump)
+        stackDump(L);
+    lua_pushnil(L); // 3.5      hello   nil
+    if (dump)
+        stackDump(L);
+    lua_rotate(L, 1, -1); // hello    nil     3.5
+    if (dump)
+        stackDump(L);
+    lua_pushvalue(L, -2); // hello    nil     3.5     nil
+    if (dump)
+        stackDump(L);
+    lua_remove(L, 1); // nil      3.5     nil
+    if (dump)
+        stackDump(L);
+    lua_insert(L, -2); // nil      nil     3.5
+    if (dump)
+        stackDump(L);
 }
 
 // Figure 27.2
@@ -118,7 +132,7 @@ void stackDump(lua_State *L) {
         int t = lua_type(L, i);
         switch (t) {
         case LUA_TSTRING:
-            printf("%s", lua_tostring(L, i));
+            printf("'%s'", lua_tostring(L, i));
             break;
 
         case LUA_TBOOLEAN:
@@ -138,5 +152,7 @@ void stackDump(lua_State *L) {
             printf("%s", lua_typename(L, i));
             break;
         }
+        printf(" ");
     }
+    printf("\n");
 }
