@@ -102,27 +102,27 @@ void basicInterpreter(lua_State *L) {
 
 // Exercise 27.2
 void stackOperations(lua_State *L, int dump) {
-    lua_pushnumber(L, 3.5); // 3.5
-    if (dump)
-        stackDump(L);
+    lua_pushnumber(L, 3.5);     // 3.5
+    if (dump)                   //
+        stackDump(L);           //
     lua_pushstring(L, "hello"); // 3.5      hello
-    if (dump)
-        stackDump(L);
-    lua_pushnil(L); // 3.5      hello   nil
-    if (dump)
-        stackDump(L);
-    lua_rotate(L, 1, -1); // hello    nil     3.5
-    if (dump)
-        stackDump(L);
-    lua_pushvalue(L, -2); // hello    nil     3.5     nil
-    if (dump)
-        stackDump(L);
-    lua_remove(L, 1); // nil      3.5     nil
-    if (dump)
-        stackDump(L);
-    lua_insert(L, -2); // nil      nil     3.5
-    if (dump)
-        stackDump(L);
+    if (dump)                   //
+        stackDump(L);           //
+    lua_pushnil(L);             // 3.5      hello   nil
+    if (dump)                   //
+        stackDump(L);           //
+    lua_rotate(L, 1, -1);       // hello    nil     3.5
+    if (dump)                   //
+        stackDump(L);           //
+    lua_pushvalue(L, -2);       // hello    nil     3.5     nil
+    if (dump)                   //
+        stackDump(L);           //
+    lua_remove(L, 1);           // nil      3.5     nil
+    if (dump)                   //
+        stackDump(L);           //
+    lua_insert(L, -2);          // nil      nil     3.5
+    if (dump)                   //
+        stackDump(L);           //
 }
 
 // Figure 27.2
@@ -149,7 +149,7 @@ void stackDump(lua_State *L) {
         }
 
         default: // just print the type name
-            printf("%s", lua_typename(L, i));
+            printf("%s", lua_typename(L, t));
             break;
         }
         printf(" ");
