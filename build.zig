@@ -33,7 +33,7 @@ pub fn build(b: *std.Build) void {
         .link_libc = true,
     });
     onelua_exe.addIncludePath("lua");
-    const lua_c_files = [_][]const u8 {
+    const lua_c_files = [_][]const u8{
         "lua/lapi.c",
         "lua/lauxlib.c",
         "lua/lbaselib.c",
@@ -67,7 +67,7 @@ pub fn build(b: *std.Build) void {
         "lua/lvm.c",
         "lua/lzio.c",
     };
-    const lua_c_flags = [_][]const u8 {
+    const lua_c_flags = [_][]const u8{
         "-Wall",
         "-O2",
         "-fno-stack-protector",
@@ -83,7 +83,8 @@ pub fn build(b: *std.Build) void {
         .link_libc = true,
     });
     exercises_exe.addIncludePath("lua");
-    exercises_exe.addCSourceFiles(&lua_c_files, &lua_c_flags);
+    const exercise_lua_flags = lua_c_flags ++ [_][]const u8{ "-DLUA_USE_APICHECK" };
+    exercises_exe.addCSourceFiles(&lua_c_files, &exercise_lua_flags);
     exercises_exe.addIncludePath("raylib/src/external/glfw/deps");
     exercises_exe.addCSourceFile("raylib/src/external/glfw/deps/getopt.c", &.{});
 

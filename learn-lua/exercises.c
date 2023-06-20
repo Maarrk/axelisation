@@ -4,11 +4,23 @@
 #include "lua.h"
 #include "lualib.h"
 #include "stdio.h"
+#include "stdlib.h"
 #include "string.h"
+
+// Exercise 27.4
+typedef struct {
+    lua_Alloc oldAllocFunction;
+    void *oldUserData;
+    size_t memoryLimit;
+    // Signed in case it starts counting when something is already allocated
+    long long memoryUsed;
+} UserData;
 
 void basicInterpreter(lua_State *L);
 void stackOperations(lua_State *L, int dump);
 void stackDump(lua_State *L);
+void setLimit(lua_State *L, size_t maxMemory, UserData *outUserData);
+void *limitedAllocFunction(void *ud, void *ptr, size_t osize, size_t nsize);
 
 int main(int argc, char **argv) {
     char *evalue = NULL;
@@ -40,6 +52,7 @@ int main(int argc, char **argv) {
         EXERCISE_27_1,
         EXERCISE_27_2,
         EXERCISE_27_3,
+        EXERCISE_27_4,
     } exercise_t;
     exercise_t selected;
     if (evalue == NULL)
@@ -51,6 +64,8 @@ int main(int argc, char **argv) {
             selected = EXERCISE_27_2;
         else if (strcmp(evalue, "27.3") == 0)
             selected = EXERCISE_27_3;
+        else if (strcmp(evalue, "27.4") == 0)
+            selected = EXERCISE_27_4;
         else {
             fprintf(stderr, "Invalid exercise selected: '%s'\n", evalue);
             return 1;
@@ -59,6 +74,7 @@ int main(int argc, char **argv) {
 
     lua_State *L = luaL_newstate(); // open Lua
     luaL_openlibs(L);               // open standard libraries
+    UserData allocFunctionUserData;
 
     switch (selected) {
     case EXERCISE_27_1:
@@ -72,6 +88,11 @@ int main(int argc, char **argv) {
     case EXERCISE_27_3:
         stackOperations(L, 0);
         stackDump(L);
+        break;
+
+    case EXERCISE_27_4:
+        setLimit(L, 1024, &allocFunctionUserData);
+        basicInterpreter(L);
         break;
 
     default:
@@ -155,4 +176,27 @@ void stackDump(lua_State *L) {
         printf(" ");
     }
     printf("\n");
+}
+
+// Exercise 27.4
+void setLimit(lua_State *L, size_t memoryLimit, UserData *outUserData) {
+    outUserData->oldAllocFunction = lua_getallocf(L, &(outUserData->oldUserData));
+    outUserData->memoryLimit = memoryLimit;
+    outUserData->memoryUsed = 0; // Only now start tracking
+
+    lua_setallocf(L, &limitedAllocFunction, outUserData);
+}
+
+void *limitedAllocFunction(void *ud, void *ptr, size_t osize, size_t nsize) {
+    UserData *userData = (UserData *)ud;
+    long long oldSize = (ptr == NULL) ? 0 : osize;
+    long long sizeChange = nsize - oldSize;
+
+    if (userData->memoryUsed + sizeChange > userData->memoryLimit) {
+        // Can't allocate or relocate block due to memory limit
+        return NULL;
+    }
+
+    userData->memoryUsed += sizeChange;
+    return (*(userData->oldAllocFunction))(userData->oldUserData, ptr, osize, nsize);
 }
