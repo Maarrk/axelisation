@@ -33,16 +33,7 @@ pub fn build(b: *std.Build) void {
         .link_libc = true,
     });
     onelua_exe.addIncludePath("lua");
-
-    const basic_interpreter_exe = b.addExecutable(.{
-        .name = "basicinterpreter",
-        .root_source_file = .{ .path = "learn-lua/basicinterpreter.c"},
-        .target = target,
-        .optimize = optimize,
-        .link_libc = true,
-    });
-    basic_interpreter_exe.addIncludePath("lua");
-    basic_interpreter_exe.addCSourceFiles(&.{
+    const lua_c_files = [_][]const u8 {
         "lua/lapi.c",
         "lua/lauxlib.c",
         "lua/lbaselib.c",
@@ -75,15 +66,28 @@ pub fn build(b: *std.Build) void {
         "lua/lutf8lib.c",
         "lua/lvm.c",
         "lua/lzio.c",
-    }, &.{
+    };
+    const lua_c_flags = [_][]const u8 {
         "-Wall",
         "-O2",
         "-fno-stack-protector",
         "-fno-common",
         "-march=native",
-    });
+    };
 
-    const lua_step = b.step("lua", "Build the Lua interpreter");
+    const exercises_exe = b.addExecutable(.{
+        .name = "exercises",
+        .root_source_file = .{ .path = "learn-lua/exercises.c"},
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    exercises_exe.addIncludePath("lua");
+    exercises_exe.addCSourceFiles(&lua_c_files, &lua_c_flags);
+    exercises_exe.addIncludePath("util");
+    exercises_exe.addCSourceFile("util/getopt.c", &.{});
+
+    const lua_step = b.step("lua", "Build the Lua interpreter and exercises");
     lua_step.dependOn(&b.addInstallArtifact(onelua_exe).step);
-    lua_step.dependOn(&b.addInstallArtifact(basic_interpreter_exe).step);
+    lua_step.dependOn(&b.addInstallArtifact(exercises_exe).step);
 }
