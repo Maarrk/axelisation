@@ -3,6 +3,7 @@
 #include "lauxlib.h"
 #include "lua.h"
 #include "lualib.h"
+#include "stdarg.h"
 #include "stdio.h"
 #include "stdlib.h"
 #include "string.h"
@@ -21,6 +22,9 @@ void stackOperations(lua_State *L, int dump);
 void stackDump(lua_State *L);
 void setLimit(lua_State *L, size_t maxMemory, UserData *outUserData);
 void *limitedAllocFunction(void *ud, void *ptr, size_t osize, size_t nsize);
+void error(lua_State *L, const char *fmt, ...);
+void call_va(lua_State *L, const char *func, const char *sig, ...);
+void plotFile(lua_State *L, const char *filename);
 
 int main(int argc, char **argv) {
     char *evalue = NULL;
@@ -53,6 +57,7 @@ int main(int argc, char **argv) {
         EXERCISE_27_2,
         EXERCISE_27_3,
         EXERCISE_27_4,
+        EXERCISE_28_1,
     } exercise_t;
     exercise_t selected;
     if (evalue == NULL)
@@ -66,6 +71,8 @@ int main(int argc, char **argv) {
             selected = EXERCISE_27_3;
         else if (strcmp(evalue, "27.4") == 0)
             selected = EXERCISE_27_4;
+        else if (strcmp(evalue, "28.1") == 0)
+            selected = EXERCISE_28_1;
         else {
             fprintf(stderr, "Invalid exercise selected: '%s'\n", evalue);
             return 1;
@@ -93,6 +100,10 @@ int main(int argc, char **argv) {
     case EXERCISE_27_4:
         setLimit(L, 1024, &allocFunctionUserData);
         basicInterpreter(L);
+        break;
+
+    case EXERCISE_28_1:
+        plotFile(L, "learn-lua/plotting.lua");
         break;
 
     default:
@@ -199,4 +210,104 @@ void *limitedAllocFunction(void *ud, void *ptr, size_t osize, size_t nsize) {
 
     userData->memoryUsed += sizeChange;
     return (*(userData->oldAllocFunction))(userData->oldUserData, ptr, osize, nsize);
+}
+
+// Exercise 28.1
+void plotFile(lua_State *L, const char *filename) {
+    if (luaL_loadfile(L, filename) || lua_pcall(L, 0, 0, 0)) // run the compiled chunk
+        error(L, "cannot run file %s: %s", filename, lua_tostring(L, -1));
+
+    for (double x = 0.0; x <= 1.0; x += 0.1) {
+        double result;
+        call_va(L, "f", "d>d", x, &result);
+        printf("%f:\t%f\n", x, result);
+    }
+}
+
+// Exercise 28.2
+void call_va(lua_State *L, const char *func, const char *sig, ...) {
+    va_list argp; // for iterating through additional arguments
+    int narg;     // number of arguments
+    int nres;     // number of results
+
+    va_start(argp, sig);
+    lua_getglobal(L, func); // push function to stack
+
+    // push arguments to the function
+    for (narg = 0; *sig; narg++) {
+        // for each character in string sig get argument with va_arg
+
+        luaL_checkstack(L, 1, "too many arguments");
+
+        switch (*sig++) {
+        case 'd': // double
+            lua_pushnumber(L, va_arg(argp, double));
+            break;
+
+        case 'i': // int
+            lua_pushinteger(L, va_arg(argp, int));
+            break;
+
+        case 's': // string
+            lua_pushstring(L, va_arg(argp, char *));
+            break;
+
+        case '>':         // end of arguments
+            goto endargs; // break out of the loop
+
+        default:
+            error(L, "invalid argument option (%c)", *(sig - 1)); // sig is already incremented
+        }
+    }
+endargs:
+
+    nres = strlen(sig); // what is still left after iterating are results
+
+    if (lua_pcall(L, narg, nres, 0) != 0) { // do the actual call here
+        error(L, "error calling '%s': %s", func, lua_tostring(L, -1));
+    }
+
+    int res_i = -nres; // stack index of the first result
+    while (*sig) {     // go through the rest of the signature
+        switch (*sig++) {
+        case 'd': { // double
+            int isnum;
+            double n = lua_tonumberx(L, res_i, &isnum);
+            if (!isnum)
+                error(L, "wrong type of result %d, expected number", 1 + nres + res_i);
+            *va_arg(argp, double *) = n;
+            break;
+        }
+
+        case 'i': { // int
+            int isnum;
+            double n = lua_tointegerx(L, res_i, &isnum);
+            if (!isnum)
+                error(L, "wrong type of result %d, expected integer", 1 + nres + res_i);
+            *va_arg(argp, int *) = n;
+            break;
+        }
+        case 's': { // string
+            const char *s = lua_tostring(L, res_i);
+            if (s == NULL)
+                error(L, "wrong type of result %d, expected string", 1 + nres + res_i);
+            *va_arg(argp, const char **) = s;
+            break;
+        }
+
+        default:
+            error(L, "invalid return option (%c)", *(sig - 1)); // sig is already incremented
+        }
+    }
+
+    va_end(argp);
+}
+
+void error(lua_State *L, const char *fmt, ...) {
+    va_list argp;
+    va_start(argp, fmt);
+    vfprintf(stderr, fmt, argp);
+    va_end(argp);
+    lua_close(L);
+    exit(EXIT_FAILURE);
 }
