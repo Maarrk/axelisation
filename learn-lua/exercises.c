@@ -1,8 +1,10 @@
 #include "ctype.h"
+#include "float.h"
 #include "getopt.h"
 #include "lauxlib.h"
 #include "lua.h"
 #include "lualib.h"
+#include "math.h"
 #include "stdarg.h"
 #include "stdio.h"
 #include "stdlib.h"
@@ -217,10 +219,38 @@ void plotFile(lua_State *L, const char *filename) {
     if (luaL_loadfile(L, filename) || lua_pcall(L, 0, 0, 0)) // run the compiled chunk
         error(L, "cannot run file %s: %s", filename, lua_tostring(L, -1));
 
-    for (double x = 0.0; x <= 1.0; x += 0.1) {
-        double result;
-        call_va(L, "f", "d>d", x, &result);
-        printf("%f:\t%f\n", x, result);
+    const int columns = 80;
+    const int rows = 25;
+
+    double results[80];
+    double min_result = DBL_MAX;
+    double max_result = DBL_MIN;
+
+    for (size_t i = 0; i < columns; i++) {
+        double x = (double)i / (double)(columns - 1);
+        call_va(L, "f", "d>d", x, &results[i]);
+
+        if (results[i] < min_result)
+            min_result = results[i];
+        if (results[i] > max_result)
+            max_result = results[i];
+    }
+
+    int result_rows[80];
+    for (size_t i = 0; i < columns; i++) {
+        result_rows[i] =
+            rows - 1 - round((results[i] - min_result) / (max_result - min_result) * (rows - 1));
+    }
+
+    for (size_t r = 0; r < rows; r++) {
+        for (size_t c = 0; c < columns; c++) {
+            if (result_rows[c] == r) {
+                printf("*");
+            } else {
+                printf(" ");
+            }
+        }
+        printf("\n");
     }
 }
 
