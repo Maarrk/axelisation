@@ -27,6 +27,7 @@ void *limitedAllocFunction(void *ud, void *ptr, size_t osize, size_t nsize);
 void error(lua_State *L, const char *fmt, ...);
 void call_va(lua_State *L, const char *func, const char *sig, ...);
 void plotFile(lua_State *L, const char *filename);
+void duplicateCharacters(lua_State *L);
 
 int main(int argc, char **argv) {
     char *evalue = NULL;
@@ -60,6 +61,7 @@ int main(int argc, char **argv) {
         EXERCISE_27_3,
         EXERCISE_27_4,
         EXERCISE_28_1,
+        EXERCISE_28_2,
     } exercise_t;
     exercise_t selected;
     if (evalue == NULL)
@@ -75,6 +77,8 @@ int main(int argc, char **argv) {
             selected = EXERCISE_27_4;
         else if (strcmp(evalue, "28.1") == 0)
             selected = EXERCISE_28_1;
+        else if (strcmp(evalue, "28.2") == 0)
+            selected = EXERCISE_28_2;
         else {
             fprintf(stderr, "Invalid exercise selected: '%s'\n", evalue);
             return 1;
@@ -106,6 +110,10 @@ int main(int argc, char **argv) {
 
     case EXERCISE_28_1:
         plotFile(L, "learn-lua/plotting.lua");
+        break;
+
+    case EXERCISE_28_2:
+        duplicateCharacters(L);
         break;
 
     default:
@@ -269,7 +277,12 @@ void call_va(lua_State *L, const char *func, const char *sig, ...) {
 
         luaL_checkstack(L, 1, "too many arguments");
 
+        int finished = 0;
         switch (*sig++) {
+        case 'b': // bool
+            lua_pushboolean(L, va_arg(argp, int));
+            break;
+
         case 'd': // double
             lua_pushnumber(L, va_arg(argp, double));
             break;
@@ -282,14 +295,17 @@ void call_va(lua_State *L, const char *func, const char *sig, ...) {
             lua_pushstring(L, va_arg(argp, char *));
             break;
 
-        case '>':         // end of arguments
-            goto endargs; // break out of the loop
+        case '>': // end of arguments
+            finished = 1;
+            break;
 
         default:
             error(L, "invalid argument option (%c)", *(sig - 1)); // sig is already incremented
         }
+
+        if (finished)
+            break;
     }
-endargs:
 
     nres = strlen(sig); // what is still left after iterating are results
 
@@ -300,6 +316,12 @@ endargs:
     int res_i = -nres; // stack index of the first result
     while (*sig) {     // go through the rest of the signature
         switch (*sig++) {
+        case 'b': { // bool
+            int b = lua_toboolean(L, res_i);
+            *va_arg(argp, int *) = b;
+            break;
+        }
+
         case 'd': { // double
             int isnum;
             double n = lua_tonumberx(L, res_i, &isnum);
@@ -328,9 +350,27 @@ endargs:
         default:
             error(L, "invalid return option (%c)", *(sig - 1)); // sig is already incremented
         }
+        res_i++;
     }
 
     va_end(argp);
+}
+
+void duplicateCharacters(lua_State *L) {
+    const char *filename = "learn-lua/duplicate_chars.lua";
+    if (luaL_loadfile(L, filename) || lua_pcall(L, 0, 0, 0)) // run the compiled chunk
+        error(L, "cannot run file %s: %s", filename, lua_tostring(L, -1));
+
+    const char *word = "Amba";
+    int is_duplicate, duplicate_char_count;
+
+    call_va(L, "has_duplicate_chars", "sb>bi", word, 0, &is_duplicate, &duplicate_char_count);
+    printf("Duplicates in '%s', not ignoring case: %s, %d\n", word, is_duplicate ? "true" : "false",
+           duplicate_char_count);
+
+    call_va(L, "has_duplicate_chars", "sb>bi", word, 1, &is_duplicate, &duplicate_char_count);
+    printf("Duplicates in '%s', ignoring case: %s, %d\n", word, is_duplicate ? "true" : "false",
+           duplicate_char_count);
 }
 
 void error(lua_State *L, const char *fmt, ...) {
