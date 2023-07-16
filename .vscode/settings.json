@@ -1,6 +1,11 @@
 {
     "files.associations": {
         "*.in": "coffeescript",
-        "raymath.h": "c"
+        "raymath.h": "c",
+        "getopt.h": "c",
+        "atomic": "c",
+        "cstdlib": "c",
+        "exception": "c",
+        "xutility": "c"
     }
 }

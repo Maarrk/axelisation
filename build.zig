@@ -91,4 +91,18 @@ pub fn build(b: *std.Build) void {
     const lua_step = b.step("lua", "Build the Lua interpreter and exercises");
     lua_step.dependOn(&b.addInstallArtifact(onelua_exe).step);
     lua_step.dependOn(&b.addInstallArtifact(exercises_exe).step);
+
+    const metar_exe = b.addExecutable(.{
+        .name = "metar-check",
+        .root_source_file = .{ .path = "learn-lua/metar_check.c"},
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    metar_exe.addIncludePath("raylib/src/external/glfw/deps");
+    metar_exe.addCSourceFile("raylib/src/external/glfw/deps/getopt.c", &.{});
+    metar_exe.addIncludePath("lua");
+    metar_exe.addCSourceFiles(&lua_c_files, &exercise_lua_flags);
+    const metar_step = b.step("metar", "Build the METAR check app for Lua Exercise 28.3");
+    metar_step.dependOn(&b.addInstallArtifact(metar_exe).step);
 }
