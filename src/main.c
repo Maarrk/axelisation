@@ -1,3 +1,4 @@
+#include "config.h"
 #include "raylib.h"
 #include "raymath.h"
 #include <math.h>
@@ -100,9 +101,8 @@ int main(int argc, char *argv[]) {
     int currentWidth;
     int currentHeight;
 
-    float playerWalkVelocity = 64.0f;
-    Vector2 gravity = {0.0f, 256.0f};
-    Vector2 playerJumpVelocity = {0.0f, -128.0f};
+    Config config = DefaultConfig();
+    LoadConfig(&config);
 
     SetTargetFPS(60);
 
@@ -110,17 +110,17 @@ int main(int argc, char *argv[]) {
         float dt = GetFrameTime();
         playerVelocity.x = 0.0f;
         if (IsKeyDown(KEY_RIGHT)) {
-            playerVelocity.x += playerWalkVelocity;
+            playerVelocity.x += config.playerWalkVelocity;
         }
         if (IsKeyDown(KEY_LEFT)) {
-            playerVelocity.x -= playerWalkVelocity;
+            playerVelocity.x -= config.playerWalkVelocity;
         }
         bool isPlayerGrounded =
             CollideAt(playerActor, Vector2Add(playerActor.position, (Vector2){0, 1}));
         if (isPlayerGrounded && IsKeyPressed(KEY_SPACE)) {
-            playerVelocity = playerJumpVelocity;
+            playerVelocity = config.playerJumpVelocity;
         } else if (!isPlayerGrounded) {
-            playerVelocity = Vector2Add(playerVelocity, Vector2Scale(gravity, dt));
+            playerVelocity = Vector2Add(playerVelocity, Vector2Scale(config.gravity, dt));
         }
 
         ActorMove(&playerActor, Vector2Scale(playerVelocity, dt));
