@@ -10,6 +10,8 @@ typedef struct Config {
 } Config;
 
 Config DefaultConfig();
-int LoadConfig(Config *outConfig);
+int LoadConfig(Config *outConfig, char **outMessage);
+
+extern const char *configScript;
 
 #endif // CONFIG_H

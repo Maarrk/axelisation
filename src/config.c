@@ -4,8 +4,10 @@
 #include "lualib.h"
 #include <string.h>
 
-int GetVector(lua_State *L, const char *path, Vector2 *outVector);
-int GetFloat(lua_State *L, const char *path, float *outFloat);
+int GetVector(lua_State *L, const char *path, Vector2 *outVector, char **outMessage);
+int GetFloat(lua_State *L, const char *path, float *outFloat, char **outMessage);
+
+const char *configScript = "src/config.lua";
 
 Config DefaultConfig() {
     Config config;
@@ -15,55 +17,71 @@ Config DefaultConfig() {
     return config;
 }
 
-int LoadConfig(Config *outConfig) {
+#define CONFIG_FLOAT_COUNT 1
+#define CONFIG_VECTOR_COUNT 2
+
+int LoadConfig(Config *outConfig, char **outMessage) {
+    Config newConfig = DefaultConfig();
+
+    // Manual reflection ;_;
+    const struct {
+        const char *path;
+        float *field;
+    } fieldsFloat[CONFIG_FLOAT_COUNT] = {
+        {"config.playerWalkVelocity", &newConfig.playerWalkVelocity},
+    };
+    const struct {
+        const char *path;
+        Vector2 *field;
+    } fieldsVector[CONFIG_VECTOR_COUNT] = {
+        {"config.gravity", &newConfig.gravity},
+        {"config.playerJumpVelocity", &newConfig.playerJumpVelocity},
+    };
+
     lua_State *L = luaL_newstate();
     luaL_openlibs(L);
 
-    const char *configScript = "src/config.lua";
     if (luaL_loadfile(L, configScript) || lua_pcall(L, 0, 0, 0)) {
-        TraceLog(LOG_ERROR, "Cannot run Lua file '%s': %s", configScript, lua_tostring(L, -1));
+        *outMessage = TextFormat("Cannot run Lua file '%s': %s", configScript, lua_tostring(L, -1));
         lua_close(L);
         return 1;
     }
 
-    Config newConfig = DefaultConfig();
-
-    if (GetFloat(L, "config.playerWalkVelocity", &newConfig.playerWalkVelocity)) {
-        TraceLog(LOG_ERROR, "Cannot get float at config path '%s'", "config.playerWalkVelocity");
-        lua_close(L);
-        return 1;
+    for (size_t i = 0; i < CONFIG_FLOAT_COUNT; i++) {
+        if (GetFloat(L, fieldsFloat[i].path, fieldsFloat[i].field, outMessage)) {
+            // *outMessage = TextFormat("Cannot get float at config path '%s'",
+            // fieldsFloat[i].path);
+            lua_close(L);
+            return 1;
+        }
     }
-
-    if (GetVector(L, "config.gravity", &newConfig.gravity)) {
-        TraceLog(LOG_ERROR, "Cannot get vector at config path '%s'", "config.playerWalkVelocity");
-        lua_close(L);
-        return 1;
-    }
-
-    if (GetVector(L, "config.playerJumpVelocity", &newConfig.playerJumpVelocity)) {
-        TraceLog(LOG_ERROR, "Cannot get vector at config path '%s'", "config.playerWalkVelocity");
-        lua_close(L);
-        return 1;
+    for (size_t i = 0; i < CONFIG_VECTOR_COUNT; i++) {
+        if (GetVector(L, fieldsVector[i].path, fieldsVector[i].field, outMessage)) {
+            // *outMessage = TextFormat("Cannot get vector at config path '%s'",
+            // fieldsVector[i].path);
+            lua_close(L);
+            return 1;
+        }
     }
 
     *outConfig = newConfig;
+    *outMessage = TextFormat("");
     return 0;
 }
 
-int GetVector(lua_State *L, const char *path, Vector2 *outVector) {
-    if (GetFloat(L, TextFormat("%s.x", path), &outVector->x)) {
+int GetVector(lua_State *L, const char *path, Vector2 *outVector, char **outMessage) {
+    if (GetFloat(L, TextFormat("%s.x", path), &outVector->x, outMessage)) {
         return 1;
     }
 
-    if (GetFloat(L, TextFormat("%s.y", path), &outVector->y)) {
+    if (GetFloat(L, TextFormat("%s.y", path), &outVector->y, outMessage)) {
         return 1;
     }
 
     return 0;
 }
 
-int GetFloat(lua_State *L, const char *path, float *outFloat) {
-    TraceLog(LOG_ERROR, "dupa");
+int GetFloat(lua_State *L, const char *path, float *outFloat, char **outMessage) {
     int segmentCount;
     char **pathSegments = TextSplit(path, '.', &segmentCount);
 
@@ -76,8 +94,8 @@ int GetFloat(lua_State *L, const char *path, float *outFloat) {
 
         if (i != segmentCount - 1) {
             if (!lua_istable(L, -1)) {
-                TraceLog(LOG_ERROR, "%s '%s' is not a table", i == 0 ? "Global" : "Field",
-                         pathSegments[i]);
+                *outMessage = TextFormat("%s '%s' is not a table", i == 0 ? "Global" : "Field",
+                                         pathSegments[i]);
                 return 1;
             }
         }
@@ -86,7 +104,7 @@ int GetFloat(lua_State *L, const char *path, float *outFloat) {
     int isNumber;
     float variable = (float)lua_tonumberx(L, -1, &isNumber);
     if (!isNumber) {
-        TraceLog(LOG_ERROR, "Variable at '%s' is not a number", path);
+        *outMessage = TextFormat("Variable at '%s' is not a number", path);
         return 1;
     }
 

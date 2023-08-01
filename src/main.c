@@ -51,6 +51,7 @@ int main(int argc, char *argv[]) {
 
     InitWindow((int)windowSize.x, (int)windowSize.y, "Axelisation - basic window");
     SetWindowState(FLAG_WINDOW_RESIZABLE);
+    SetExitKey(KEY_Q);
 
     {
         const struct {
@@ -102,28 +103,62 @@ int main(int argc, char *argv[]) {
     int currentHeight;
 
     Config config = DefaultConfig();
-    LoadConfig(&config);
+    long configModTime = GetFileModTime(configScript);
+    float configLoadDelay = 1.0f;
+    float configLoadTimer = 0.0f;
+    char *configLoadMessage = "";
+    int configLoaded = 0;
+    LoadConfig(&config, &configLoadMessage);
+    if (TextLength(configLoadMessage) > 0) {
+        TraceLog(LOG_ERROR, configLoadMessage);
+    }
 
     SetTargetFPS(60);
+    int isPaused = 0;
+    float timeScale = 1.0f;
 
     while (!WindowShouldClose()) {
-        float dt = GetFrameTime();
-        playerVelocity.x = 0.0f;
-        if (IsKeyDown(KEY_RIGHT)) {
-            playerVelocity.x += config.playerWalkVelocity;
-        }
-        if (IsKeyDown(KEY_LEFT)) {
-            playerVelocity.x -= config.playerWalkVelocity;
-        }
-        bool isPlayerGrounded =
-            CollideAt(playerActor, Vector2Add(playerActor.position, (Vector2){0, 1}));
-        if (isPlayerGrounded && IsKeyPressed(KEY_SPACE)) {
-            playerVelocity = config.playerJumpVelocity;
-        } else if (!isPlayerGrounded) {
-            playerVelocity = Vector2Add(playerVelocity, Vector2Scale(config.gravity, dt));
+        if (IsKeyPressed(KEY_ESCAPE)) {
+            isPaused = !isPaused;
+
+            timeScale = isPaused ? 0.0f : 1.0f;
+            if (!isPaused) {
+                // Clear load state when exiting pause
+                configLoaded = 0;
+            }
         }
 
-        ActorMove(&playerActor, Vector2Scale(playerVelocity, dt));
+        if (configLoadTimer > 0.0f) {
+            configLoadTimer -= GetFrameTime();
+        }
+
+        if (isPaused) {
+            if (configLoadTimer <= 0.0f && GetFileModTime(configScript) > configModTime) {
+                configLoadTimer = configLoadDelay;
+                configModTime = GetFileModTime(configScript);
+
+                LoadConfig(&config, &configLoadMessage);
+                configLoaded = 1;
+            }
+        } else {
+            float dt = GetFrameTime() * timeScale;
+            playerVelocity.x = 0.0f;
+            if (IsKeyDown(KEY_RIGHT)) {
+                playerVelocity.x += config.playerWalkVelocity;
+            }
+            if (IsKeyDown(KEY_LEFT)) {
+                playerVelocity.x -= config.playerWalkVelocity;
+            }
+            bool isPlayerGrounded =
+                CollideAt(playerActor, Vector2Add(playerActor.position, (Vector2){0, 1}));
+            if (isPlayerGrounded && IsKeyPressed(KEY_SPACE)) {
+                playerVelocity = config.playerJumpVelocity;
+            } else if (!isPlayerGrounded) {
+                playerVelocity = Vector2Add(playerVelocity, Vector2Scale(config.gravity, dt));
+            }
+
+            ActorMove(&playerActor, Vector2Scale(playerVelocity, dt));
+        }
 
         if (IsKeyPressed(KEY_F)) {
             if (!IsWindowFullscreen()) {
@@ -170,6 +205,39 @@ int main(int argc, char *argv[]) {
                 DrawText("Top left UI", 8, 8, 20, DARKGRAY);
                 DrawText("Bottom left UI", 8, currentHeight - 28, 20, DARKGRAY);
                 DrawFPS(currentWidth - 96, 8);
+
+                if (isPaused) {
+                    DrawText("Game Paused", currentWidth / 2 - 125, currentHeight / 2 - 60, 40,
+                             MAROON);
+                    Rectangle hint = (Rectangle){currentWidth / 2, currentHeight / 2, 400, 40};
+                    hint.x -= hint.width / 2;
+                    DrawRectangleRec(hint, GRAY);
+                    DrawText("Press 'Esc' to resume, or 'q' to exit", hint.x + 5, hint.y + 10, 20,
+                             BLACK);
+
+                    if (configLoaded) {
+                        Rectangle status =
+                            (Rectangle){currentWidth / 2, hint.y + hint.height * 2 + 10, 600, 40};
+                        status.x -= status.width / 2;
+                        DrawRectangleRec(status, GRAY);
+                        if (TextLength(configLoadMessage) == 0) {
+                            DrawText("Updated config correctly", status.x + 5, status.y + 5, 30,
+                                     GREEN);
+                        } else {
+                            DrawText(configLoadMessage, status.x + 5, status.y + 10, 20, RED);
+                        }
+                        // Replace the text in format buffer
+                        configLoadMessage = TextFormat("%s", configLoadMessage);
+
+                        if (configLoadTimer > 0.0f) {
+                            Vector2 center = (Vector2){status.x - status.height / 2 - 5,
+                                                       status.y + status.height / 2};
+                            DrawCircleSector(center, status.height / 2, 180.0f,
+                                             configLoadTimer / configLoadDelay * 360.0f + 180.0f, 0,
+                                             GRAY);
+                        }
+                    }
+                }
                 EndMode2D();
             }
 
