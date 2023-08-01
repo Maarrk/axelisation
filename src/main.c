@@ -21,7 +21,7 @@ typedef struct Solid {
     Vector2 position;
 } Solid;
 
-#define SOLID_COUNT 9
+#define SOLID_COUNT 14
 
 Solid solids[SOLID_COUNT];
 
@@ -72,17 +72,18 @@ int main(int argc, char *argv[]) {
     Actor playerActor = {TILE_PLAYER, Vector2Zero(), Vector2Zero(), ACTION_STOP_PLAYER};
 
     {
-        solids[0] = (Solid){TILE_BLOCK, (Vector2){0, 1}};
-        solids[1] = (Solid){TILE_BLOCK, (Vector2){1, 1}};
-        solids[2] = (Solid){TILE_BLOCK, (Vector2){2, 1}};
-        solids[3] = (Solid){TILE_BLOCK, (Vector2){3, 1}};
-        solids[4] = (Solid){TILE_BLOCK, (Vector2){3, 0}};
-        solids[5] = (Solid){TILE_BLOCK, (Vector2){-1, 1}};
-        solids[6] = (Solid){TILE_BLOCK, (Vector2){-2, 1}};
-        solids[7] = (Solid){TILE_BLOCK, (Vector2){-3, 1}};
-        solids[8] = (Solid){TILE_BLOCK, (Vector2){-3, 0}};
+        Solid tiledSolids[SOLID_COUNT] = {
+            {TILE_BLOCK, (Vector2){0, 1}},   {TILE_BLOCK, (Vector2){1, 1}},
+            {TILE_BLOCK, (Vector2){2, 1}},   {TILE_BLOCK, (Vector2){3, 1}},
+            {TILE_BLOCK, (Vector2){3, 0}},   {TILE_BLOCK, (Vector2){-1, 1}},
+            {TILE_BLOCK, (Vector2){-2, 1}},  {TILE_BLOCK, (Vector2){-3, 1}},
+            {TILE_BLOCK, (Vector2){-3, 0}},  {TILE_BLOCK, (Vector2){1, -1.5}},
+            {TILE_BLOCK, (Vector2){-4, 0}},  {TILE_BLOCK, (Vector2){-4, -1}},
+            {TILE_BLOCK, (Vector2){-4, -2}}, {TILE_BLOCK, (Vector2){-4, -3}},
+        };
         for (size_t i = 0; i < SOLID_COUNT; i++) {
-            solids[i].position = Vector2Scale(solids[i].position, tileSize);
+            solids[i] = tiledSolids[i];
+            solids[i].position = Vector2Scale(tiledSolids[i].position, tileSize);
         }
     }
 
@@ -316,8 +317,14 @@ void HandleCollision(Actor *actor, Vector2 movementSign) {
     case ACTION_DO_NOTHING:
         return;
 
-    case ACTION_STOP_PLAYER:
-        playerVelocity = Vector2Zero();
+    case ACTION_STOP_PLAYER: {
+        if (movementSign.x != 0) {
+            playerVelocity.x = 0;
+        }
+        if (movementSign.y != 0) {
+            playerVelocity.y = 0;
+        }
         return;
+    }
     }
 }
